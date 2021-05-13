@@ -413,7 +413,7 @@ def handleEvents(game):
             row = pos[1] // (GameConstants.screenHeight // GameConstants.gridHeight)            
             
             # send player action to game
-            response = action(whoAmI,get_mac(),(col,row))
+            response = action(whoAmI,get_mac(),(row,col))
             if(response != 'invalid'):
                 gs.grid = response
             # game.eventJournal.append((row, col))
