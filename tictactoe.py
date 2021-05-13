@@ -337,9 +337,9 @@ def drawGrid(screen, game):
             color = GameConstants.ColorWhite
             
             if grid[row][column] == 1:
-                color = GameConstants.ColorRed
-            elif grid[row][column] == 2:
                 color = GameConstants.ColorBlue
+            elif grid[row][column] == 2:
+                color = GameConstants.ColorRed
             
             m = GameConstants.gridMarginSize
             w = GameConstants.gridCellWidth
