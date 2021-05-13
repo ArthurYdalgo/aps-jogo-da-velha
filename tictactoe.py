@@ -11,7 +11,9 @@ cY = -1
 player1=0
 player2=0
 
-cPlayer_ = 1
+cPlayer_ = 0
+
+whoAmI = 0
 
 import pygame
 import copy
@@ -19,11 +21,70 @@ import sys
 import traceback
 import random
 import numpy as np
-import pickle
-import socket
+from uuid import getnode as get_mac
+import socket,pickle
+from time import time 
 
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
 PORT = 65432        # Port to listen on (non-privileged ports are > 1023)
+
+
+def refreshGame():
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+
+    ip_serv = '127.0.0.1'
+
+    porta_serv = 65432
+
+    dest = (ip_serv,porta_serv)
+
+
+    tcp.connect(dest)
+
+    tcp.send(pickle.dumps({'command':'refresh'}))
+    
+    resp = pickle.loads(tcp.recv(1024))
+
+    print(resp)
+
+    tcp.close()
+
+    return resp
+
+
+def action(player_num,mac,coordenadas):
+    jogada = {
+        'command' : 'action',
+        'data' : {
+            'player' : player_num,
+            'mac' : mac,
+            'coordinates' :coordenadas
+        }
+    }
+
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+
+    ip_serv = '127.0.0.1'
+
+    porta_serv = 65432
+
+    dest = (ip_serv,porta_serv)
+
+
+    tcp.connect(dest)
+
+    tcp.send(pickle.dumps(jogada))
+
+    # tamp_resp = int.from_bytes(tcp.recv(4),'big')
+    resp = pickle.loads(tcp.recv(1024))
+
+    print(resp)
+    tcp.close()
+
+    return resp
+
 
 class GameConstants:
     #                  R    G    B
@@ -59,7 +120,8 @@ class Game:
     class GameState:
         # 0 empty, 1 X, 2 O
         grid = np.zeros((GameConstants.gridHeight, GameConstants.gridWidth))
-        currentPlayer = 0
+        currentPlayer = 1
+        turn = None
     
     def __init__(self, expectUserInputs=True):
         self.expectUserInputs = expectUserInputs
@@ -79,27 +141,61 @@ class Game:
     
 
     def checkObjectiveState(self, gs):
+
+        grid = gs.grid
         # Complete line?
         for i in range(3):
-            s = set(gs.grid[i, :])
-            if len(s) == 1 and min(s) != 0:
-                return s.pop()
-            
-        # Complete column?
-        for i in range(3):
-            s = set(gs.grid[:, i])
-            if len(s) == 1 and min(s) != 0:
-                return s.pop()
-            
-        # Complete diagonal (main)?
-        s = set([gs.grid[i, i] for i in range(3)])
-        if len(s) == 1 and min(s) != 0:
-            return s.pop()
+            jogador1 = 0
+            jogador2 = 0
+            for j in range(3):
+                if (grid[i][j]==1):
+                    jogador1+=1
+                elif(grid[i][j]==2):
+                    jogador2+=1
+            if(jogador1 == 3):
+                return 1
+            elif(jogador2 == 3):
+                return 2
         
-        # Complete diagonal (opposite)?
-        s = set([gs.grid[-i-1, i] for i in range(3)])
-        if len(s) == 1 and min(s) != 0:
-            return s.pop()
+        for i in range(3):
+            jogador1 = 0
+            jogador2 = 0
+            for j in range(3):
+                if (grid[j][i]==1):
+                    jogador1+=1
+                elif(grid[j][i]==2):
+                    jogador2+=1
+            if(jogador1 == 3):
+                return 1
+            elif(jogador2 == 3):
+                return 2
+        
+        jogador1 = 0
+        jogador2 = 0
+        for i in range(3):
+            
+            if (grid[i][i]==1):
+                jogador1+=1
+            elif(grid[i][i]==2):
+                jogador2+=1
+        if(jogador1 == 3):
+            return 1
+        elif(jogador2 == 3):
+            return 2
+
+        jogador1 = 0
+        jogador2 = 0
+        for i in range(3):
+            
+            if (grid[2-i][i]==1):
+                jogador1+=1
+            elif(grid[2-i][i]==2):
+                jogador2+=1
+        if(jogador1 == 3):
+            return 1
+        elif(jogador2 == 3):
+            return 2
+        
             
         # nope, not an objective state
         return 0
@@ -116,19 +212,21 @@ class Game:
         gs = self.states[-1]
         
         
-        # Switch player turn
-        if gs.currentPlayer == 0:
-            gs.currentPlayer = 1
-        elif gs.currentPlayer == 1:
-            gs.currentPlayer = 2
-        elif gs.currentPlayer == 2:
-            gs.currentPlayer = 1
+        # # Switch player turn
+        # if gs.currentPlayer == 0:
+        #     gs.currentPlayer = 1
+        # elif gs.currentPlayer == 1:
+        #     gs.currentPlayer = 2
+        # elif gs.currentPlayer == 2:
+        #     gs.currentPlayer = 1
             
         # Mark the cell clicked by this player
         cell = self.eventJournal.pop()
         gs.grid[cell[0]][cell[1]] = gs.currentPlayer
         global grid_
         grid_ = gs.grid
+
+        
         
         # Check if end of game
         if self.checkObjectiveState(gs):
@@ -140,25 +238,58 @@ class Game:
 def ganhadorDoJogo(grid): #por algum motivo não conseguia chamar essa função do msm jeito q o jogo, entao dupliquei ela
     # Complete line?
     for i in range(3):
-        s = set(grid[i, :])
-        if len(s) == 1 and min(s) != 0:
-            return s.pop()
-        
-    # Complete column?
-    for i in range(3):
-        s = set(grid[:, i])
-        if len(s) == 1 and min(s) != 0:
-            return s.pop()
-        
-    # Complete diagonal (main)?
-    s = set([grid[i, i] for i in range(3)])
-    if len(s) == 1 and min(s) != 0:
-        return s.pop()
+        jogador1 = 0
+        jogador2 = 0
+        for j in range(3):
+            if (grid[i][j]==1):
+                jogador1+=1
+            elif(grid[i][j]==2):
+                jogador2+=1
+        if(jogador1 == 3):
+            return 1
+        elif(jogador2 == 3):
+            return 2
     
-    # Complete diagonal (opposite)?
-    s = set([grid[-i-1, i] for i in range(3)])
-    if len(s) == 1 and min(s) != 0:
-        return s.pop()
+    for i in range(3):
+        jogador1 = 0
+        jogador2 = 0
+        for j in range(3):
+            if (grid[j][i]==1):
+                jogador1+=1
+            elif(grid[j][i]==2):
+                jogador2+=1
+        if(jogador1 == 3):
+            return 1
+        elif(jogador2 == 3):
+            return 2
+    
+    jogador1 = 0
+    jogador2 = 0
+    for i in range(3):
+        
+        if (grid[i][i]==1):
+            jogador1+=1
+        elif(grid[i][i]==2):
+            jogador2+=1
+    if(jogador1 == 3):
+        return 1
+    elif(jogador2 == 3):
+        return 2
+
+    jogador1 = 0
+    jogador2 = 0
+    for i in range(3):
+        
+        if (grid[2-i][i]==1):
+            jogador1+=1
+        elif(grid[2-i][i]==2):
+            jogador2+=1
+
+    if(jogador1 == 3):
+        return 1
+    elif(jogador2 == 3):
+        return 2
+    
         
     # nope, not an objective state
     return 0
@@ -246,16 +377,19 @@ def handleEvents(game):
         global cX
         global cY
         pos = pygame.mouse.get_pos()  
-        
+
         global player1
         global player2
         global cPlayer_
+        gs = game.states[-1]
+
+        global whoAmI
+
         #Atualizar
         #confere se mudou de quadrado (padrao do inicio do jogo é 0 0, canto superior esquerdo)
         if((cX != pos[0] // (GameConstants.screenWidth // GameConstants.gridWidth))or(cY != pos[1] // (GameConstants.screenHeight // GameConstants.gridHeight))):            
             cX = pos[0] // (GameConstants.screenWidth // GameConstants.gridWidth)
             cY = pos[1] // (GameConstants.screenHeight // GameConstants.gridHeight)
-            gs = game.states[-1]
             grid = copy.deepcopy(gs.grid)#copia a grid do jogo atual
             player1=0
             player2=0
@@ -276,14 +410,15 @@ def handleEvents(game):
             pos = pygame.mouse.get_pos()
             
             col = pos[0] // (GameConstants.screenWidth // GameConstants.gridWidth)
-            row = pos[1] // (GameConstants.screenHeight // GameConstants.gridHeight)
-            #print('clicked cell: {}, {}'.format(cellX, cellY))
-            if cPlayer_ == 1:
-                cPlayer_ = 2
-            elif cPlayer_ == 2:
-                cPlayer_ = 1
+            row = pos[1] // (GameConstants.screenHeight // GameConstants.gridHeight)            
+            
             # send player action to game
-            game.eventJournal.append((row, col))
+            response = action(whoAmI,get_mac(),(col,row))
+            if(response != 'invalid'):
+                gs.grid = response
+            # game.eventJournal.append((row, col))
+
+
         
 
             
@@ -292,15 +427,34 @@ def handleEvents(game):
             sys.exit()
 
             
-def mainGamePlayer():
+def mainGamePlayer(iAm):
+    ts = 0
     try:
         # Initialize pygame and etc.
         screen, font, game, fpsClock = initialize()
-              
+        game.currentPlayer = iAm
         # Main game loop
         while game.alive:
             # Handle events
             handleEvents(game)
+
+            test = int(time())
+            
+            if(test>ts+3):
+                gs = game.states[-1]
+                gs.currentPlayer = iAm
+                state = refreshGame()
+                # grid = [
+                #     [0,0,0],
+                #     [0,0,0],
+                #     [0,0,0],
+                # ]
+                grid = state['grid']
+                current_player = state['current_player']
+                gs.currentPlayer = current_player
+                ts = test
+                # gs.grid = state 
+                # print(gs.grid)
                     
             # Update world
             game.update()
@@ -324,23 +478,48 @@ def mainGamePlayer():
     
     
 
-# mainGamePlayer()
+# mainGamePlayer(1)
 
 def menu():
     print("Bem vindo ao Jogo Da Velha da Quarentena")
-    print("Voce quer ser")
-    print("1- Cliente (primeiro a jogar)")
-    print("2- Servidor (segundo a jogar)")
+    print("Insira o IP do servidor")    
+    
+    # ip = input("IP: ")
+    ip = '127.0.0.1'
+        
+    dest = (ip,PORT)
 
-    choice = ''
-    while(not(choice in ['1','2'])):
-        choice = input("Insira sua escolha: ")
+    try:
+        tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    if(choice=='1'):
+        tcp.connect(dest)
+        
+        command = {
+            'command' : 'insert',
+            'data':get_mac()
+        }
 
-        pass
-    else:
+        tcp.send(pickle.dumps(command))
 
-        pass
+        # tamp_resp = int.from_bytes(tcp.recv(4),'big')
+        resp = pickle.loads(tcp.recv(1024))
+        
+        tcp.close()
+
+        if(resp == 'unavailable'):
+            print("Jogo indisponível")
+            sys.exit()
+        else:
+            global whoAmI
+            whoAmI = resp
+            mainGamePlayer(whoAmI)
+
+    except:
+        print("Erro ao conectar ao servidor")
+
+
+
+    
+    
 
 menu()
