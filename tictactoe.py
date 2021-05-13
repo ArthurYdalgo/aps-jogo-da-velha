@@ -25,7 +25,7 @@ from uuid import getnode as get_mac
 import socket,pickle
 from time import time 
 
-HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
+ip = None  # Standard loopback interface address (localhost)
 PORT = 65432        # Port to listen on (non-privileged ports are > 1023)
 
 
@@ -33,7 +33,7 @@ def refreshGame():
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
-    ip_serv = '127.0.0.1'
+    ip_serv = ip
 
     porta_serv = 65432
 
@@ -66,7 +66,7 @@ def action(player_num,mac,coordenadas):
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
-    ip_serv = '127.0.0.1'
+    ip_serv = ip
 
     porta_serv = 65432
 
@@ -491,9 +491,9 @@ def mainGamePlayer(iAm):
 def menu():
     print("Bem vindo ao Jogo Da Velha da Quarentena")
     print("Insira o IP do servidor")    
-    
-    # ip = input("IP: ")
-    ip = '127.0.0.1'
+    global ip
+    ip = input("IP: ")
+    # ip = ip
         
     dest = (ip,PORT)
 
