@@ -416,6 +416,10 @@ def handleEvents(game):
             response = action(whoAmI,get_mac(),(row,col))
             if(response != 'invalid'):
                 gs.grid = response
+                ganhador = ganhadorDoJogo(gs.grid)
+                if(ganhador!=0):
+                    print("ganhador: {}".format(ganhador))
+                    sys.exit()
             # game.eventJournal.append((row, col))
 
 
@@ -453,7 +457,11 @@ def mainGamePlayer(iAm):
                 current_player = state['current_player']
                 gs.currentPlayer = current_player
                 ts = test
-                # gs.grid = state 
+                gs.grid = grid 
+                ganhador = ganhadorDoJogo(grid)
+                if(ganhador!=0):
+                    print("ganhador: {}".format(ganhador))
+                    sys.exit()
                 # print(gs.grid)
                     
             # Update world
