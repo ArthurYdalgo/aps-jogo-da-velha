@@ -1,24 +1,35 @@
-import socket, pickle
-from time import sleep
-HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
-PORT = 65432        # Port to listen on (non-privileged ports are > 1023)
-# arr = [[-1,-1,1],[-1,1,-1],[1,-1,-1]]
+import socket,pickle
 
-while True:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen()
-        conn, addr = s.accept()
-        with conn:
-            print('Connected by', addr)
-            while True:
-                data = conn.recv(1024)
-                if data:
-                    obj = pickle.loads(data)
-                    print("servidor recebeu...")
-                    print(obj)
-                    print("delay de 5s")
-                    sleep(5)
-                    conn.sendall(b'ok')
-                    break
-            
+tcp = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+
+ip = ''
+porta = 65432
+orig = (ip,porta)
+tcp.bind(orig)
+
+while(True):
+    print("escutando")
+    tcp.listen(1)
+    tcp_dados,cliente = tcp.accept()
+    print("escutei")
+
+    numero = int(input("escolha um numero: "))
+    numeroCliente = int.from_bytes(tcp_dados.recv(4),'big')
+    # resposta = pickle.loads(tcp_dados)
+
+    if(numero + numeroCliente %2 ==0):
+        print("ganhou")
+        resposta = 'perdeu'
+        resposta_b = pickle.dumps(resposta)
+        tcp_dados.send(tam_resp+resposta.encode())
+    else:
+        print("perdeu")
+        resposta = 'ganhou'
+        tam_resp = (len(resposta)).to_bytes(4,'big')
+        tcp_dados.send(tam_resp+resposta.encode())
+
+tcp_dados.close()
+
+
+
